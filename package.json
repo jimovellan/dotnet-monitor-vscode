@@ -1,0 +1,89 @@
+{
+  "name": "dotnet-monitor-vscode",
+  "displayName": "Dotnet Monitor",
+  "description": "monitor procesos .net",
+  "version": "0.0.1",
+  "publisher": "tu-nombre",
+  "engines": {
+    "vscode": "^1.95.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "activationEvents": [
+    "onStartupFinished"
+  ],
+  "main": "./out/extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "dotnetMonitor.showDashboard",
+        "title": "Mostrar Dashboard Dotnet Monitor"
+      }
+    ],
+    "configuration": {
+      "title": "Dotnet Monitor",
+      "properties": {
+        "dotnetMonitor.port": {
+          "type": "number",
+          "default": 52323,
+          "description": "Puerto HTTPS donde dotnet-monitor expone la API",
+          "minimum": 1,
+          "maximum": 65535
+        },
+        "dotnetMonitor.httpPort": {
+          "type": "number",
+          "default": 52325,
+          "description": "Puerto HTTP alternativo de dotnet-monitor",
+          "minimum": 1,
+          "maximum": 65535
+        },
+        "dotnetMonitor.autoReconnect": {
+          "type": "boolean",
+          "default": true,
+          "description": "Reconectar automáticamente si el stream de métricas se desconecta"
+        },
+        "dotnetMonitor.reconnectDelay": {
+          "type": "number",
+          "default": 2000,
+          "description": "Tiempo en milisegundos antes de intentar reconectar",
+          "minimum": 500,
+          "maximum": 30000
+        },
+        "dotnetMonitor.maxDataPoints": {
+          "type": "number",
+          "default": 30,
+          "description": "Número máximo de puntos a mostrar en los gráficos",
+          "minimum": 10,
+          "maximum": 100
+        },
+        "dotnetMonitor.commandArgs": {
+          "type": "array",
+          "default": ["collect", "--no-auth"],
+          "description": "Argumentos para ejecutar dotnet-monitor",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    }
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run compile",
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./",
+    "pretest": "npm run compile && npm run lint",
+    "lint": "eslint src",
+    "test": "vscode-test"
+  },
+  "devDependencies": {
+    "@types/vscode": "^1.95.0",
+    "@types/mocha": "^10.0.10",
+    "@types/node": "22.x",
+    "typescript-eslint": "^8.46.3",
+    "eslint": "^9.39.1",
+    "typescript": "^5.9.3",
+    "@vscode/test-cli": "^0.0.12",
+    "@vscode/test-electron": "^2.5.2"
+  }
+}
