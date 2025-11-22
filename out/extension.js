@@ -223,7 +223,8 @@ async function obtenerProcesos() {
         }
         const data = await response.json();
         console.log('✅ Procesos obtenidos:', data);
-        return data;
+        const blackLists = ['dotnet', 'microsoft.visualstudio.'];
+        return data.filter(prop => !blackLists.some(blackList => prop.name.toLowerCase().startsWith(blackList)));
     }
     catch (error) {
         console.error('Error obteniendo procesos:', error);
@@ -571,10 +572,30 @@ function getMetricsHTML(pid) {
 						grid-template-columns: 1fr;
 					}
 				}
+				button {
+					background-color: var(--vscode-button-background);
+					color: var(--vscode-button-foreground);
+					border: none;
+					padding: 10px 20px;
+					border-radius: 4px;
+					cursor: pointer;
+					font-size: 14px;
+					font-family: var(--vscode-font-family);
+					transition: background-color 0.2s;
+					margin: 10px 0;
+				}
+				button:hover {
+					background-color: var(--vscode-button-hoverBackground);
+				}
+				button:active {
+					background-color: var(--vscode-button-hoverBackground);
+					opacity: 0.8;
+				}
 			</style>
 		</head>
 		<body>
 			<h1>📊 Métricas en tiempo real - PID ${pid}</h1>
+			<button onclick="window.location.reload()">🔄 Volver a la lista de procesos</button>
 			<div id="status">⏳ Esperando métricas...</div>
 			
 			<h2>📈 Gráficos en Tiempo Real</h2>
@@ -968,6 +989,12 @@ function getMetricsHTML(pid) {
 				let currentWorkingSetValue = null;
 				let currentGcHeapValue = null;
 				
+				const goBack = () => {
+					vscode.postMessage({
+						command: 'obtenerProcesos'
+					});
+				}
+
 				// Escuchar métricas de la extensión
 				window.addEventListener('message', event => {
 					const { command, data } = event.data;
