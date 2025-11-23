@@ -205,8 +205,8 @@ async function obtenerProcesos(): Promise<any[]> {
 		}
 		const data = await response.json() as any[];
 		console.log('✅ Procesos obtenidos:', data);
-		const blackLists= ['dotnet', 'microsoft.visualstudio.'];
-		return data.filter(prop => !blackLists.some(blackList => prop.name.toLowerCase().startsWith(blackList)));
+		const blackLists= [ 'microsoft.visualstudio.'];
+		return data.filter(prop => !blackLists.some(blackList => prop.name.toLowerCase().startsWith(blackList) || prop.name.toLowerCase() === 'dotnet' ));
 	} catch (error: any) {
 		console.error('Error obteniendo procesos:', error);
 		return [];
@@ -288,6 +288,19 @@ export function activate(context: vscode.ExtensionContext) {
 					console.log('📨 Mensaje recibido del webview:', mensaje);
 
 					if(mensaje.command === 'obtenerProcesos') {
+						loadProcesosHtml(panel, monitorProcess);
+					}
+
+					if (mensaje.command === 'backToList') {
+						console.log('🔙 Volviendo a la lista de procesos...');
+						
+						// Si hay un stream anterior, cancelarlo
+						if (cancelarStream) {
+							cancelarStream();
+							cancelarStream = null;
+						}
+						
+						// Volver a cargar la lista de procesos
 						loadProcesosHtml(panel, monitorProcess);
 					}
 
@@ -621,7 +634,7 @@ function getMetricsHTML(pid: number): string {
 		</head>
 		<body>
 			<h1>📊 Métricas en tiempo real - PID ${pid}</h1>
-			<button onclick="window.location.reload()">🔄 Volver a la lista de procesos</button>
+			<button onclick="vscode.postMessage({command: 'backToList'})">← Volver a la lista de procesos</button>
 			<div id="status">⏳ Esperando métricas...</div>
 			
 			<h2>📈 Gráficos en Tiempo Real</h2>

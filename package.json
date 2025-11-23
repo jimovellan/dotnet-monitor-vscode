@@ -1,15 +1,41 @@
 {
   "name": "dotnet-monitor-vscode",
   "displayName": "Dotnet Monitor",
-  "description": "monitor procesos .net",
-  "version": "0.0.1",
-  "publisher": "tu-nombre",
+  "description": "Monitor and analyze .NET application performance in real-time with an integrated dashboard",
+  "version": "0.0.2",
+  "publisher": "nmovellan",
+  "author": {
+    "name": "Jose Ignacio Movellan"
+  },
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/jimovellan/dotnet-monitor-vscode.git"
+  },
+  "bugs": {
+    "url": "https://github.com/jimovellan/dotnet-monitor-vscode/issues"
+  },
+  "homepage": "https://github.com/jimovellan/dotnet-monitor-vscode#readme",
+  "keywords": [
+    "dotnet",
+    "monitor",
+    "performance",
+    "metrics",
+    "diagnostics",
+    "csharp",
+    "profiling",
+    "memory",
+    "dashboard"
+  ],
   "engines": {
     "vscode": "^1.95.0"
   },
   "categories": [
+    "Debuggers",
+    "Visualization",
     "Other"
   ],
+  "icon": "icon.png",
   "activationEvents": [
     "onStartupFinished"
   ],
@@ -59,7 +85,10 @@
         },
         "dotnetMonitor.commandArgs": {
           "type": "array",
-          "default": ["collect", "--no-auth"],
+          "default": [
+            "collect",
+            "--no-auth"
+          ],
           "description": "Argumentos para ejecutar dotnet-monitor",
           "items": {
             "type": "string"
@@ -70,20 +99,29 @@
   },
   "scripts": {
     "vscode:prepublish": "npm run compile",
-    "compile": "tsc -p ./",
+    "compile": "tsc -p ./ && npm run copy-webview",
+    "copy-webview": "mkdir -p out/webview/components out/webview/pages && cp src/webview/*.js out/webview/ 2>/dev/null || true && cp src/webview/*.css out/webview/ 2>/dev/null || true && cp src/webview/components/*.js out/webview/components/ 2>/dev/null || true && cp src/webview/pages/*.js out/webview/pages/ 2>/dev/null || true",
     "watch": "tsc -watch -p ./",
     "pretest": "npm run compile && npm run lint",
     "lint": "eslint src",
-    "test": "vscode-test"
+    "test": "vscode-test",
+    "package": "vsce package",
+    "publish": "vsce publish"
   },
   "devDependencies": {
-    "@types/vscode": "^1.95.0",
     "@types/mocha": "^10.0.10",
     "@types/node": "22.x",
-    "typescript-eslint": "^8.46.3",
-    "eslint": "^9.39.1",
-    "typescript": "^5.9.3",
+    "@types/vscode": "^1.95.0",
     "@vscode/test-cli": "^0.0.12",
-    "@vscode/test-electron": "^2.5.2"
+    "@vscode/test-electron": "^2.5.2",
+    "@vscode/vsce": "^3.2.1",
+    "eslint": "^9.39.1",
+    "tailwindcss": "^3.4.18",
+    "typescript": "^5.9.3",
+    "typescript-eslint": "^8.46.3"
+  },
+  "dependencies": {
+    "chart.js": "^4.5.1",
+    "vue": "^3.5.24"
   }
 }

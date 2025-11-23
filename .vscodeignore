@@ -9,3 +9,13 @@ vsc-extension-quickstart.md
 **/*.map
 **/*.ts
 **/.vscode-test.*
+node_modules/**
+!node_modules/vue/dist/vue.global.prod.js
+!node_modules/chart.js/dist/chart.umd.js
+!node_modules/vue-chartjs/**
+**/.DS_Store
+.editorconfig
+.eslintignore
+eslint.config.mjs
+*.vsix
+.github/**

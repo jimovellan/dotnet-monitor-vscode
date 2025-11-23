@@ -1,71 +1,98 @@
-# dotnet-monitor-vscode README
+# 🔍 Dotnet Monitor for VS Code
 
-This is the README for your extension "dotnet-monitor-vscode". After writing up a brief description, we recommend including the following sections.
+**English** | [Español](README.es.md)
 
-## Features
+Monitor and analyze your .NET application performance directly from Visual Studio Code. This extension provides an integrated visual interface for [dotnet-monitor](https://github.com/dotnet/dotnet-monitor), displaying real-time metrics from your .NET processes.
 
-Describe specific features of your extension including screenshots of your extension in action. Image paths are relative to this README file.
+## ✨ Features
 
-For example if there is an image subfolder under your extension project workspace:
+- 📊 **Real-time dashboard** - Visualize metrics from your .NET applications while they run
+- 🧠 **Memory metrics** - Monitor Working Set and GC Heap Size with interactive charts
+- 🔄 **Auto-reconnect** - Automatically reconnects if the connection to dotnet-monitor is lost
+- ⚙️ **Highly configurable** - Customize ports, arguments and extension behavior
+- 🎨 **Modern interface** - Visual dashboard with interactive charts
 
-\!\[feature X\]\(images/feature-x.png\)
+## 📋 Requirements
 
-> Tip: Many popular extensions utilize animations. This is an excellent way to show off your extension! We recommend short, focused animations that are easy to follow.
+Before using this extension, you need to have installed:
 
-## Requirements
+1. **.NET SDK** (version 6.0 or higher)
+2. **dotnet-monitor** - Install it globally with:
+   ```bash
+   dotnet tool install -g dotnet-monitor
+   ```
 
-If you have any requirements or dependencies, add a section describing those and how to install and configure them.
+## 🚀 Usage
 
-## Extension Settings
+1. Open the **Command Palette** (`Cmd+Shift+P` on macOS / `Ctrl+Shift+P` on Windows/Linux)
+2. Type `Mostrar Dashboard Dotnet Monitor` and select the command
+3. The dashboard will open showing all running .NET processes
+4. Select a process to start monitoring its real-time metrics
 
-Include if your extension adds any VS Code settings through the `contributes.configuration` extension point.
+## 📊 Available Metrics
 
-For example:
+Currently, the extension monitors the following memory metrics:
 
-This extension contributes the following settings:
+- **Working Set (MB)** - Total physical memory used by the process
+- **GC Heap Size (MB)** - Size of the heap managed by the Garbage Collector
 
-* `myExtension.enable`: Enable/disable this extension.
-* `myExtension.thing`: Set to `blah` to do something.
+*More metrics in development: CPU, threads, exceptions, etc.*
 
-## Known Issues
+## 🛠️ Development
 
-Calling out known issues can help limit users opening duplicate issues against your extension.
+If you want to contribute or modify the extension:
 
-## Release Notes
+```bash
+# Clone the repository
+git clone https://github.com/jimovellan/dotnet-monitor-vscode.git
+cd dotnet-monitor-vscode
 
-Users appreciate release notes as you update your extension.
+# Install dependencies
+npm install
 
-### 1.0.0
+# Compile
+npm run compile
 
-Initial release of ...
+# Run in watch mode (development)
+npm run watch
 
-### 1.0.1
+# Run tests
+npm test
+```
 
-Fixed issue #.
+Press `F5` in VS Code to start the extension in debug mode.
 
-### 1.1.0
+## 🐛 Known Issues
 
-Added features X, Y, and Z.
+- The extension requires dotnet-monitor to be installed globally
+- On some systems, manual port configuration may be necessary if there are conflicts
+
+## 📝 Release Notes
+
+### 0.0.1
+
+🎉 **Initial release**
+
+- Interactive dashboard
+- Real-time memory metrics monitoring
+- Real-time charts
+- Automatic reconnection
+- Flexible configuration
 
 ---
 
-## Following extension guidelines
+## 📄 License
 
-Ensure that you've read through the extensions guidelines and follow the best practices for creating your extension.
+[MIT](LICENSE)
 
-* [Extension Guidelines](https://code.visualstudio.com/api/references/extension-guidelines)
+## 🤝 Contributing
 
-## Working with Markdown
+Contributions are welcome! Please open an issue or pull request on [GitHub](https://github.com/jimovellan/dotnet-monitor-vscode).
 
-You can author your README using Visual Studio Code. Here are some useful editor keyboard shortcuts:
+## 👨‍💻 Author
 
-* Split the editor (`Cmd+\` on macOS or `Ctrl+\` on Windows and Linux).
-* Toggle preview (`Shift+Cmd+V` on macOS or `Shift+Ctrl+V` on Windows and Linux).
-* Press `Ctrl+Space` (Windows, Linux, macOS) to see a list of Markdown snippets.
+**Jose Ignacio Movellan** - [@jimovellan](https://github.com/jimovellan)
 
-## For more information
+---
 
-* [Visual Studio Code's Markdown Support](http://code.visualstudio.com/docs/languages/markdown)
-* [Markdown Syntax Reference](https://help.github.com/articles/markdown-basics/)
-
-**Enjoy!**
+**Enjoy monitoring your .NET applications!** 🚀
