@@ -223,31 +223,180 @@ async function obtenerProcesos() {
         }
         const data = await response.json();
         console.log('✅ Procesos obtenidos:', data);
-        // Obtener el nombre del programa en debug (si existe)
+        // Obtener información del programa en debug (si existe)
         let debugProgramName = null;
+        let debugProgramPath = null;
+        let debugCwd = null;
+        let debugProjectName = null;
         const debugSession = vscode.debug.activeDebugSession;
         if (debugSession && (debugSession.type === 'coreclr' || debugSession.type === 'clr')) {
-            // Obtener el nombre del programa desde la configuración
+            console.log('🐛 Debug session configuration:', JSON.stringify(debugSession.configuration, null, 2));
+            // Obtener el nombre y ruta del programa desde la configuración
             const programPath = debugSession.configuration?.program;
             if (programPath) {
+                debugProgramPath = programPath.replace(/\\/g, '/').toLowerCase();
                 // Extraer solo el nombre del archivo desde la ruta completa
                 debugProgramName = programPath.split('/').pop()?.split('\\').pop() || null;
-                console.log('🐛 Programa en debug detectado:', debugProgramName);
+                console.log('🐛 Programa en debug:', debugProgramName);
+                console.log('🐛 Ruta completa:', debugProgramPath);
+            }
+            // Obtener el directorio de trabajo
+            debugCwd = debugSession.configuration?.cwd?.replace(/\\/g, '/').toLowerCase() || null;
+            console.log('🐛 Working directory:', debugCwd);
+            // Obtener el nombre del proyecto desde projectPath o launchConfigurationId
+            const projectPath = debugSession.configuration?.projectPath;
+            if (projectPath) {
+                debugProjectName = projectPath.split('/').pop()?.split('\\').pop()?.replace(/\.csproj$/i, '') || null;
+                console.log('🐛 Nombre del proyecto:', debugProjectName);
+            }
+        }
+        console.log('🐛 Todos los procesos antes de filtrar:', data.map(p => ({
+            pid: p.pid,
+            name: p.name,
+            commandLine: p.commandLine?.substring(0, 150)
+        })));
+        // Si hay debug activo y el programa es un DLL, buscar en procesos "dotnet"
+        let debugProcessPid = null;
+        if (debugProgramName && debugProgramName.endsWith('.dll') && debugProgramPath) {
+            console.log('🔍 Buscando proceso dotnet que contenga:', debugProgramPath);
+            // Buscar en todos los procesos "dotnet" para encontrar el correcto
+            for (const proceso of data.filter(p => p.name?.toLowerCase() === 'dotnet')) {
+                try {
+                    // Obtener información detallada del proceso
+                    const detailResponse = await fetchWithAgent(`https://localhost:${config.port}/process?pid=${proceso.pid}`);
+                    if (detailResponse.ok) {
+                        const detail = await detailResponse.json();
+                        console.log(`🔍 Proceso dotnet PID ${proceso.pid}:`, {
+                            commandLine: detail.commandLine?.substring(0, 200)
+                        });
+                        // Buscar la ruta del DLL en el commandLine
+                        if (detail.commandLine) {
+                            const cmdLower = detail.commandLine.replace(/\\/g, '/').toLowerCase();
+                            if (cmdLower.includes(debugProgramPath)) {
+                                console.log(`✅ FOUND! Proceso dotnet con PID ${proceso.pid} ejecutando ${debugProgramName}`);
+                                debugProcessPid = proceso.pid;
+                                break;
+                            }
+                        }
+                    }
+                }
+                catch (err) {
+                    console.log(`❌ Error obteniendo info del proceso ${proceso.pid}:`, err);
+                }
             }
         }
         const blackLists = ['microsoft.visualstudio.'];
-        // Filtrar y marcar el proceso en debug
-        return data
-            .filter(prop => !blackLists.some(blackList => prop.name.toLowerCase().startsWith(blackList) ||
-            prop.name.toLowerCase() === 'dotnet'))
+        // Función para detectar si un proceso es el que está en debug
+        const isProcessDebugging = (proceso) => {
+            // Si ya encontramos el PID exacto, usar eso
+            if (debugProcessPid !== null && proceso.pid === debugProcessPid) {
+                console.log('✅ Match por PID exacto:', proceso.pid);
+                return true;
+            }
+            if (!debugProgramName)
+                return false;
+            const procesoName = proceso.name?.toLowerCase() || '';
+            const debugName = debugProgramName.toLowerCase();
+            console.log(`🔍 Evaluando proceso: "${procesoName}" contra debug: "${debugName}"`);
+            // Estrategia 1: Comparación exacta de nombre
+            if (procesoName === debugName) {
+                console.log('✅ Match por nombre exacto:', procesoName);
+                return true;
+            }
+            // Estrategia 2: Nombre sin extensión (.exe, .dll)
+            const procesoNameWithoutExt = procesoName.replace(/\.(exe|dll)$/i, '');
+            const debugNameWithoutExt = debugName.replace(/\.(exe|dll)$/i, '');
+            console.log(`🔍 Comparando sin extensión: "${procesoNameWithoutExt}" vs "${debugNameWithoutExt}"`);
+            if (procesoNameWithoutExt === debugNameWithoutExt) {
+                console.log('✅ Match por nombre sin extensión:', procesoNameWithoutExt);
+                return true;
+            }
+            // Estrategia 3: Comparar con el nombre del DLL si el programa es un DLL
+            // En .NET, el proceso suele llamarse igual que el DLL pero sin extensión
+            if (debugName.endsWith('.dll')) {
+                const dllNameWithoutExt = debugName.replace(/\.dll$/i, '');
+                console.log(`🔍 Es DLL, comparando: "${procesoName}" vs "${dllNameWithoutExt}" o "${dllNameWithoutExt}.exe"`);
+                if (procesoName === dllNameWithoutExt || procesoName === dllNameWithoutExt + '.exe') {
+                    console.log('✅ Match por nombre de DLL:', dllNameWithoutExt);
+                    return true;
+                }
+            }
+            // Estrategia 4: Buscar en la ruta del comando si está disponible
+            if (debugProgramPath && proceso.commandLine) {
+                const commandLine = proceso.commandLine.replace(/\\/g, '/').toLowerCase();
+                console.log(`🔍 Buscando ruta "${debugProgramPath}" en commandLine: "${commandLine.substring(0, 100)}..."`);
+                if (commandLine.includes(debugProgramPath)) {
+                    console.log('✅ Match por ruta en commandLine');
+                    return true;
+                }
+            }
+            // Estrategia 5: Buscar por directorio de trabajo
+            if (debugCwd && proceso.commandLine) {
+                const commandLine = proceso.commandLine.replace(/\\/g, '/').toLowerCase();
+                console.log(`🔍 Buscando cwd "${debugCwd}" en commandLine`);
+                if (commandLine.includes(debugCwd)) {
+                    console.log('✅ Match por working directory');
+                    return true;
+                }
+            }
+            // Estrategia 6: Comparar con el nombre del proyecto (.csproj)
+            if (debugProjectName) {
+                const projectName = debugProjectName.toLowerCase();
+                const procesoNameClean = procesoName.replace(/\.(exe|dll)$/i, '');
+                console.log(`🔍 Comparando con proyecto: "${procesoNameClean}" vs "${projectName}"`);
+                if (procesoNameClean === projectName) {
+                    console.log('✅ Match por nombre de proyecto:', projectName);
+                    return true;
+                }
+            }
+            console.log(`❌ No match para proceso: "${procesoName}"`);
+            return false;
+        };
+        // Filtrar procesos
+        const filteredProcesses = data
+            .filter(prop => {
+            const name = prop.name.toLowerCase();
+            // No filtrar blacklist si hay debug activo y el proceso es "dotnet"
+            if (debugProgramName && name === 'dotnet') {
+                return true;
+            }
+            // Aplicar blacklist normal
+            return !blackLists.some(blackList => name.startsWith(blackList));
+        })
             .map(proceso => ({
             ...proceso,
-            isDebugging: debugProgramName !== null && proceso.name?.toLowerCase() === debugProgramName.toLowerCase()
+            isDebugging: isProcessDebugging(proceso)
         }));
+        // Verify if the debug process was found
+        const debugActive = !!debugProgramName;
+        const debugProcess = debugActive ? filteredProcesses.find(p => p.isDebugging) : undefined;
+        const debugFound = !!debugProcess;
+        // Check if there are any debug processes in the entire list
+        const hasAnyDebugProcess = filteredProcesses.some(p => p.isDebugging);
+        // If there is a debug process, show only that one
+        if (debugActive) {
+            return {
+                processes: debugProcess ? [debugProcess] : filteredProcesses,
+                debugActive,
+                debugFound,
+                hasAnyDebugProcess
+            };
+        }
+        return {
+            processes: filteredProcesses,
+            debugActive: false,
+            debugFound: false,
+            hasAnyDebugProcess
+        };
     }
     catch (error) {
         console.error('Error obteniendo procesos:', error);
-        return [];
+        return {
+            processes: [],
+            debugActive: false,
+            debugFound: false,
+            hasAnyDebugProcess: false
+        };
     }
 }
 // This method is called when your extension is activated
@@ -271,7 +420,7 @@ function activate(context) {
             enableScripts: true
         });
         // Mostrar loading inicial
-        panel.webview.html = getLoadingHTML('Iniciando dotnet-monitor...');
+        panel.webview.html = getLoadingHTML('Starting dotnet-monitor...');
         // Iniciar dotnet-monitor con argumentos configurables
         const monitorProcess = (0, child_process_1.spawn)('dotnet-monitor', config.commandArgs);
         console.log('✅ Dotnet Monitor iniciado con PID:', monitorProcess.pid);
@@ -283,10 +432,10 @@ function activate(context) {
             console.error('dotnet-monitor error:', data.toString());
         });
         // Esperar a que la API esté lista
-        panel.webview.html = getLoadingHTML('Esperando a que la API esté lista...');
+        panel.webview.html = getLoadingHTML('Waiting for API to be ready...');
         const apiReady = await esperarAPI(`https://localhost:${config.port}/processes`);
         if (!apiReady) {
-            panel.webview.html = getErrorHTML('No se pudo conectar a la API de dotnet-monitor');
+            panel.webview.html = getErrorHTML('Could not connect to dotnet-monitor API');
             monitorProcess.kill();
             return;
         }
@@ -336,15 +485,24 @@ function activate(context) {
     context.subscriptions.push(dashboardCmd);
 }
 async function loadProcesosHtml(panel, monitorProcess) {
-    panel.webview.html = getLoadingHTML('Obteniendo lista de procesos...');
-    const procesos = await obtenerProcesos();
-    if (procesos.length === 0) {
-        panel.webview.html = getErrorHTML('No se encontraron procesos .NET en ejecución');
-        monitorProcess.kill();
-        return;
+    panel.webview.html = getLoadingHTML('Getting process list...');
+    const result = await obtenerProcesos();
+    // Determine the type of warning to show
+    let warningType = 'none';
+    if (result.processes.length === 0) {
+        // No .NET processes found at all
+        warningType = 'no-processes';
     }
-    // Mostrar lista de procesos
-    panel.webview.html = getProcessListHTML(procesos);
+    else if (result.debugActive && !result.debugFound) {
+        // Debug session is active but the specific debug process was not found
+        warningType = 'no-debug-process';
+    }
+    else if (!result.hasAnyDebugProcess) {
+        // There are processes but none of them are being debugged
+        warningType = 'no-active-debug';
+    }
+    // Show process list with warning information
+    panel.webview.html = getProcessListHTML(result.processes, warningType);
 }
 // Función para generar HTML de loading
 function getLoadingHTML(mensaje) {
@@ -418,7 +576,7 @@ function getErrorHTML(mensaje) {
 	`;
 }
 // Función para generar HTML con lista de procesos
-function getProcessListHTML(procesos) {
+function getProcessListHTML(procesos, warningType = 'none') {
     const procesosHTML = procesos.map(proc => `
 		<div class="proceso-item ${proc.isDebugging ? 'debugging' : ''}" onclick="seleccionarProceso(${proc.pid})">
 			<div class="proceso-info">
@@ -429,6 +587,37 @@ function getProcessListHTML(procesos) {
 			<div class="proceso-command">${proc.commandLine || 'N/A'}</div>
 		</div>
 	`).join('');
+    let warningMessage = '';
+    let warningDescription = '';
+    if (warningType === 'no-processes') {
+        warningMessage = 'No .NET processes found';
+        warningDescription = 'Make sure your .NET application is running and try again.';
+    }
+    else if (warningType === 'no-debug-process') {
+        warningMessage = 'Debug process not found';
+        warningDescription = 'An active debug session was detected, but the corresponding process could not be found. Make sure your application is running in debug mode and try again.';
+    }
+    else if (warningType === 'no-active-debug') {
+        warningMessage = 'No active debug processes found';
+        warningDescription = 'There are .NET processes running, but none of them are currently being debugged. Start debugging your application to monitor it.';
+    }
+    const warningBanner = warningType !== 'none' ? `
+		<div class="warning-banner">
+			<div class="warning-content">
+				<span class="warning-icon">⚠️</span>
+				<div class="warning-text">
+					<strong>${warningMessage}</strong>
+					<p>${warningDescription}</p>
+				</div>
+			</div>
+			<button class="retry-button" onclick="searchAgain()">🔄 Search Again</button>
+		</div>
+	` : '';
+    const reloadButton = warningType === 'none' ? `
+		<div style="text-align: center; margin-top: 20px;">
+			<button class="reload-button" onclick="searchAgain()">🔄 Reload Processes</button>
+		</div>
+	` : '';
     return `
 		<!DOCTYPE html>
 		<html>
@@ -444,6 +633,66 @@ function getProcessListHTML(procesos) {
 				h1 {
 					color: #4ec9b0;
 					margin-bottom: 20px;
+				}
+				.warning-banner {
+					background-color: rgba(255, 193, 7, 0.15);
+					border: 1px solid #ffc107;
+					border-radius: 5px;
+					padding: 15px;
+					margin-bottom: 20px;
+					display: flex;
+					justify-content: space-between;
+					align-items: center;
+				}
+				.warning-content {
+					display: flex;
+					gap: 15px;
+					align-items: flex-start;
+				}
+				.warning-icon {
+					font-size: 24px;
+					line-height: 1;
+				}
+				.warning-text {
+					flex: 1;
+				}
+				.warning-text strong {
+					color: #ffc107;
+					display: block;
+					margin-bottom: 5px;
+				}
+				.warning-text p {
+					margin: 0;
+					font-size: 0.9em;
+					color: var(--vscode-descriptionForeground);
+				}
+				.retry-button {
+					background-color: #ffc107;
+					color: #000;
+					border: none;
+					padding: 8px 16px;
+					border-radius: 4px;
+					cursor: pointer;
+					font-weight: bold;
+					font-size: 0.9em;
+					transition: background-color 0.2s;
+				}
+				.retry-button:hover {
+					background-color: #ffb300;
+				}
+				.reload-button {
+					background-color: var(--vscode-button-background);
+					color: var(--vscode-button-foreground);
+					border: none;
+					padding: 10px 20px;
+					border-radius: 4px;
+					cursor: pointer;
+					font-weight: bold;
+					font-size: 0.95em;
+					transition: background-color 0.2s;
+				}
+				.reload-button:hover {
+					background-color: var(--vscode-button-hoverBackground);
 				}
 				.proceso-item {
 					padding: 15px;
@@ -489,13 +738,25 @@ function getProcessListHTML(procesos) {
 					color: var(--vscode-descriptionForeground);
 					font-family: monospace;
 				}
+				.empty-message {
+					text-align: center;
+					padding: 40px 20px;
+					color: var(--vscode-descriptionForeground);
+				}
+				.empty-message p {
+					font-size: 1.1em;
+					margin: 0;
+				}
 			</style>
 		</head>
 		<body>
-			<h1>� Selecciona un proceso .NET</h1>
+			<h1>🔍 Select a .NET Process</h1>
+			${reloadButton}
+			${warningBanner}
 			<div id="lista-procesos">
 				${procesosHTML}
 			</div>
+			
 			
 			<script>
 				const vscode = acquireVsCodeApi();
@@ -504,6 +765,12 @@ function getProcessListHTML(procesos) {
 					vscode.postMessage({
 						command: 'seleccionarProceso',
 						pid: pid
+					});
+				}
+				
+				function searchAgain() {
+					vscode.postMessage({
+						command: 'obtenerProcesos'
 					});
 				}
 			</script>
@@ -638,11 +905,11 @@ function getMetricsHTML(pid) {
 			</style>
 		</head>
 		<body>
-			<h1>📊 Métricas en tiempo real - PID ${pid}</h1>
-			<button onclick="vscode.postMessage({command: 'backToList'})">← Volver a la lista de procesos</button>
-			<div id="status">⏳ Esperando métricas...</div>
+			<h1>📊 Real-time Metrics - PID ${pid}</h1>
+			<button onclick="vscode.postMessage({command: 'backToList'})">← Back to process list</button>
+			<div id="status">⏳ Waiting for metrics...</div>
 			
-			<h2>📈 Gráficos en Tiempo Real</h2>
+			<h2>📈 Real-time Charts</h2>
 			<div class="charts-row">
 				<div class="chart-container">
 					<canvas id="cpuChart"></canvas>

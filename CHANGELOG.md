@@ -4,6 +4,19 @@ All notable changes to the "dotnet-monitor-vscode" extension will be documented 
 
 The format is based on [Keep a Changelog](http://keepachangelog.com/) and this project adheres to [Semantic Versioning](http://semver.org/).
 
+## [0.0.6] - 2025-01-XX
+
+### 🚀 Improved Debug Process Detection
+
+#### Added
+- ⚠️ Warning banner when debug process is not detected
+- 🔄 "Search Again" button to retry detection
+- 📋 Better user feedback for failed debug process detection
+
+#### Changed
+- 🎯 Enhanced UX when debugging process cannot be automatically identified
+- 💡 Clear messaging to help users troubleshoot debug detection issues
+
 ## [0.0.1] - 2025-11-23
 
 ### 🎉 Initial Release
