@@ -223,8 +223,27 @@ async function obtenerProcesos() {
         }
         const data = await response.json();
         console.log('✅ Procesos obtenidos:', data);
+        // Obtener el nombre del programa en debug (si existe)
+        let debugProgramName = null;
+        const debugSession = vscode.debug.activeDebugSession;
+        if (debugSession && (debugSession.type === 'coreclr' || debugSession.type === 'clr')) {
+            // Obtener el nombre del programa desde la configuración
+            const programPath = debugSession.configuration?.program;
+            if (programPath) {
+                // Extraer solo el nombre del archivo desde la ruta completa
+                debugProgramName = programPath.split('/').pop()?.split('\\').pop() || null;
+                console.log('🐛 Programa en debug detectado:', debugProgramName);
+            }
+        }
         const blackLists = ['microsoft.visualstudio.'];
-        return data.filter(prop => !blackLists.some(blackList => prop.name.toLowerCase().startsWith(blackList) || prop.name.toLowerCase() === 'dotnet'));
+        // Filtrar y marcar el proceso en debug
+        return data
+            .filter(prop => !blackLists.some(blackList => prop.name.toLowerCase().startsWith(blackList) ||
+            prop.name.toLowerCase() === 'dotnet'))
+            .map(proceso => ({
+            ...proceso,
+            isDebugging: debugProgramName !== null && proceso.name?.toLowerCase() === debugProgramName.toLowerCase()
+        }));
     }
     catch (error) {
         console.error('Error obteniendo procesos:', error);
@@ -401,10 +420,11 @@ function getErrorHTML(mensaje) {
 // Función para generar HTML con lista de procesos
 function getProcessListHTML(procesos) {
     const procesosHTML = procesos.map(proc => `
-		<div class="proceso-item" onclick="seleccionarProceso(${proc.pid})">
+		<div class="proceso-item ${proc.isDebugging ? 'debugging' : ''}" onclick="seleccionarProceso(${proc.pid})">
 			<div class="proceso-info">
 				<span class="proceso-pid">PID: ${proc.pid}</span>
 				<span class="proceso-name">${proc.name || 'N/A'}</span>
+				${proc.isDebugging ? '<span class="debug-badge">🐛 DEBUGGING</span>' : ''}
 			</div>
 			<div class="proceso-command">${proc.commandLine || 'N/A'}</div>
 		</div>
@@ -442,6 +462,7 @@ function getProcessListHTML(procesos) {
 					display: flex;
 					gap: 20px;
 					margin-bottom: 5px;
+					align-items: center;
 				}
 				.proceso-pid {
 					font-weight: bold;
@@ -449,6 +470,19 @@ function getProcessListHTML(procesos) {
 				}
 				.proceso-name {
 					color: var(--vscode-foreground);
+				}
+				.debug-badge {
+					background-color: #f48771;
+					color: #000;
+					padding: 2px 8px;
+					border-radius: 4px;
+					font-size: 0.75em;
+					font-weight: bold;
+					margin-left: 10px;
+				}
+				.proceso-item.debugging {
+					border-left: 3px solid #f48771;
+					background-color: rgba(244, 135, 113, 0.1);
 				}
 				.proceso-command {
 					font-size: 0.9em;

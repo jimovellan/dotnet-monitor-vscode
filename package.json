@@ -2,7 +2,7 @@
   "name": "dotnet-monitor-vscode",
   "displayName": "Dotnet Monitor",
   "description": "Monitor and analyze .NET application performance in real-time with an integrated dashboard",
-  "version": "0.0.2",
+  "version": "0.0.5",
   "publisher": "nmovellan",
   "author": {
     "name": "Jose Ignacio Movellan"
